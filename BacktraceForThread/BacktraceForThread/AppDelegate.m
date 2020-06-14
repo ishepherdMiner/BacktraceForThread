@@ -17,10 +17,31 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
+    NSSetUncaughtExceptionHandler(HandleException);
     [BacktraceThread backtraceString];
+    // @[][1];
     return YES;
 }
 
+void HandleException(NSException *exception) {
+    
+    [BacktraceThread backtraceString];
+    
+//    //获取调用堆栈
+//    NSArray *callStack = [exception callStackSymbols];
+//    NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithDictionary:[exception userInfo]];
+//    [userInfo setObject:callStack forKey:UncaughtExceptionHandlerAddressesKey];
+//
+//    //在主线程中，执行制定的方法, withObject是执行方法传入的参数
+//    [[[UncaughtExceptionHandler alloc] init]
+//     performSelectorOnMainThread:@selector(handleException:)
+//     withObject:
+//     [NSException exceptionWithName:[exception name]
+//                             reason:[exception reason]
+//                           userInfo:userInfo]
+//     waitUntilDone:YES];
+
+}
 
 #pragma mark - UISceneSession lifecycle
 

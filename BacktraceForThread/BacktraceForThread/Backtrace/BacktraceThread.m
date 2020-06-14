@@ -69,24 +69,61 @@ typedef struct nlist nlist_t;
         kern_return_t kr = thread_get_state(act_list[i], BS_THREAD_STATE, (thread_state_t)&machineContext.__ss, &state_count);
         if (kr == KERN_SUCCESS) {
             // 找出所有的函数调用地址
-            QiStackFrameEntry frame = {0};
             uintptr_t backtraceBuffer[50];
+            int i = 0;
+            NSMutableString *resultString = [[NSMutableString alloc] initWithFormat:@"Backtrace of Thread %u:\n", thread];
+            
+            _STRUCT_MCONTEXT machineContext;
+            if(![self qi_fillThreadStateFrom:act_list[i] intoMachineContext:&machineContext]) {
+                return [NSString stringWithFormat:@"Fail to get information about thread: %u", thread];
+            }
+            
+            const uintptr_t instructionAddress = bs_mach_instructionAddress(&machineContext);
+            backtraceBuffer[i] = instructionAddress;
+            ++i;
+            
+            uintptr_t linkRegister = bs_mach_linkRegister(&machineContext);
+            if (linkRegister) {
+                backtraceBuffer[i] = linkRegister;
+                i++;
+            }
+            
+            if(instructionAddress == 0) {
+                return @"Fail to get instruction address";
+            }
+            
+            QiStackFrameEntry frame = {0};
             const uintptr_t framePtr = bs_mach_framePointer(&machineContext);
-            bs_mach_memcpy((void *)framePtr, &frame, sizeof(frame));
-            for(int i = 0; i < 50; i++) {
+            if(framePtr == 0 ||
+               bs_mach_memcpy((void *)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS) {
+                return @"Fail to get frame pointer";
+            }
+            
+            for(; i < 50; i++) {
                 backtraceBuffer[i] = frame.return_address;
                 if(backtraceBuffer[i] == 0 ||
                    frame.previous == 0 ||
                    bs_mach_memcpy(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS) {
                     break;
                 }
-                // NSLog(@"%d",i);
                 
                 Dl_info info;
                 if(ksdl_dladdr(backtraceBuffer[i], &info)) {
                     NSLog(@"%s %p %p %s",info.dli_fname,info.dli_fbase,info.dli_saddr,info.dli_sname);
                 }
             }
+            
+//            for(int i = 0; i < 50; i++) {
+//                backtraceBuffer[i] = frame.return_address;
+//                if(backtraceBuffer[i] == 0 ||
+//                   frame.previous == 0 ||
+//                   bs_mach_memcpy(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS) {
+//                   break;
+//                }
+//                // NSLog(@"%d",i);
+//                
+//                
+//            }
         }
     }
     
@@ -135,6 +172,14 @@ typedef struct nlist nlist_t;
 //    });
     
     return @"";
+}
+
+uintptr_t bs_mach_instructionAddress(mcontext_t const machineContext){
+    return machineContext->__ss.__pc;
+}
+
+uintptr_t bs_mach_linkRegister(mcontext_t const machineContext) {
+    return machineContext->__ss.__lr;
 }
 
 //static inline bool getThreadList(KSMachineContext* context)
@@ -329,11 +374,7 @@ uint32_t imageIndexContainingAddress(const uintptr_t address) {
             // 在提供的address范围内，寻找segment command
             uintptr_t addressWSlide = address - (uintptr_t)_dyld_get_image_vmaddr_slide(i); //!< ASLR
             uintptr_t cmdPointer = 0; // qi_firstCmdAfterHeader(header);
-            if (header->magic == MH_MAGIC) {
-                cmdPointer = ((uint64_t)((struct mach_header*)header) + sizeof(struct mach_header));
-            } else {
-                cmdPointer = ((uint64_t)header + sizeof(struct mach_header_64));
-            }
+            cmdPointer = firstCmdAfterHeader(header);
             if (cmdPointer == 0) {
                 continue;
             }
