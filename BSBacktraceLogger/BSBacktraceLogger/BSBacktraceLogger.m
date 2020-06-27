@@ -95,7 +95,7 @@ static mach_port_t main_thread_id;
     thread_act_array_t threads;
     mach_msg_type_number_t thread_count = 0;
     const task_t this_task = mach_task_self();
-    
+    ksmc_suspendEnvironment();
     kern_return_t kr = task_threads(this_task, &threads, &thread_count);
     if(kr != KERN_SUCCESS) {
         return @"Fail to get information of all threads";
@@ -158,6 +158,42 @@ NSString *_bs_backtraceOfThread(thread_t thread) {
     [resultString appendFormat:@"\n"];
     return [resultString copy];
 }
+
+void ksmc_suspendEnvironment()
+{
+    NSLog(@"Suspending environment.");
+    kern_return_t kr;
+    const task_t thisTask = mach_task_self();
+    const thread_t thisThread = mach_thread_self();
+    thread_array_t suspendedThreads;
+    mach_msg_type_number_t numSuspendedThreads;
+    if((kr = task_threads(thisTask, &suspendedThreads, &numSuspendedThreads)) != KERN_SUCCESS)
+    {
+        NSLog(@"task_threads: %s", mach_error_string(kr));
+        return;
+    }else {
+        NSLog(@"task_threads: %d", mach_thread_self());
+    }
+    
+    for(mach_msg_type_number_t i = 0; i < numSuspendedThreads; i++)
+    {
+        thread_t thread = suspendedThreads[i];
+        if(thread != thisThread)
+        {
+            if((kr = thread_suspend(thread)) != KERN_SUCCESS)
+            {
+                // Record the error and keep going.
+                NSLog(@"thread_suspend (%08x): %s", thread, mach_error_string(kr));
+            }
+            NSLog(@"%d",thread);
+        }else {
+            NSLog(@"2==%d",thread);
+        }
+    }
+    
+    // KSLOG_DEBUG("Suspend complete.");
+}
+
 
 #pragma -mark Convert NSThread to Mach thread
 thread_t bs_machThreadFromNSThread(NSThread *nsthread) {

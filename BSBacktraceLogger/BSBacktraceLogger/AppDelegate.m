@@ -7,6 +7,7 @@
 //
 
 #import "AppDelegate.h"
+#import "BSBacktraceLogger.h"
 
 @interface AppDelegate ()
 
@@ -17,7 +18,14 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
+    // NSSetUncaughtExceptionHandler(HandleException);
+    // [BacktraceThread backtraceString];
+    // @[][1];
     return YES;
+}
+
+void HandleException(NSException *exception) {
+    BSLOG_ALL
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application {

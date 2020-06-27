@@ -18,8 +18,8 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
     NSSetUncaughtExceptionHandler(HandleException);
-    [BacktraceThread backtraceString];
-    // @[][1];
+    // [BacktraceThread backtraceString];
+    @[][1];
     return YES;
 }
 

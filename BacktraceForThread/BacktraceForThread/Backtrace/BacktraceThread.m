@@ -8,7 +8,7 @@
 
 #import "BacktraceThread.h"
 #import <mach/task.h>
-#import <mach/mach_init.h>
+#import <mach/mach.h>
 #import <mach/mach_port.h>
 #import <mach/task_info.h>
 #import <mach/thread_act.h>
@@ -60,6 +60,7 @@ typedef struct nlist nlist_t;
     thread_act_t thread = mach_task_self();
     thread_array_t act_list;
     mach_msg_type_number_t act_listCnt;
+    // ksmc_suspendEnvironment();
     task_threads(thread, &act_list, &act_listCnt);
     for (int i = 0; i < act_listCnt; ++i) {
         // thread_suspend(act_list[i]);
@@ -121,10 +122,11 @@ typedef struct nlist nlist_t;
 //                   break;
 //                }
 //                // NSLog(@"%d",i);
-//                
-//                
+//
+//
 //            }
         }
+        ksmc_resumeEnvironment(act_list, act_listCnt);
     }
     
 //    dispatch_async(dispatch_get_global_queue(0, 0), ^{
@@ -180,6 +182,81 @@ uintptr_t bs_mach_instructionAddress(mcontext_t const machineContext){
 
 uintptr_t bs_mach_linkRegister(mcontext_t const machineContext) {
     return machineContext->__ss.__lr;
+}
+
+void ksmc_suspendEnvironment()
+{
+    NSLog(@"Suspending environment.");
+    kern_return_t kr;
+    const task_t thisTask = mach_task_self();
+    const thread_t thisThread = mach_thread_self();
+    thread_array_t suspendedThreads;
+    mach_msg_type_number_t numSuspendedThreads;
+    if((kr = task_threads(thisTask, &suspendedThreads, &numSuspendedThreads)) != KERN_SUCCESS)
+    {
+        NSLog(@"task_threads: %s", mach_error_string(kr));
+        return;
+    }
+    
+    for(mach_msg_type_number_t i = 0; i < numSuspendedThreads; i++)
+    {
+        thread_t thread = suspendedThreads[i];
+        if(thread != thisThread)
+        {
+            if((kr = thread_suspend(thread)) != KERN_SUCCESS)
+            {
+                // Record the error and keep going.
+                NSLog(@"thread_suspend (%08x): %s", thread, mach_error_string(kr));
+            }
+        }
+    }
+    
+    // KSLOG_DEBUG("Suspend complete.");
+}
+
+void ksmc_resumeEnvironment(thread_act_array_t threads, mach_msg_type_number_t numThreads)
+{
+    
+    kern_return_t kr;
+    const task_t thisTask = mach_task_self();
+    const thread_t thisThread = mach_thread_self();
+    
+    if(threads == NULL || numThreads == 0)
+    {
+        
+        return;
+    }
+    
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        thread_t thread = threads[i];
+        if(thread != thisThread)
+        {
+            if((kr = thread_resume(thread)) != KERN_SUCCESS)
+            {
+                // Record the error and keep going.
+                
+            }
+        }
+    }
+    
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        mach_port_deallocate(thisTask, threads[i]);
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
+}
+
+static inline bool isThreadInList(thread_t thread, thread_t* list, int listCount)
+{
+    for(int i = 0; i < listCount; i++)
+    {
+        if(list[i] == thread)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 //static inline bool getThreadList(KSMachineContext* context)

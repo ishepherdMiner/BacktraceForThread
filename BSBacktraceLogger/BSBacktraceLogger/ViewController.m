@@ -22,9 +22,9 @@
 }
 
 - (void)bar {
-    while (true) {
-        ;
-    }
+//    while (true) {
+//        ;
+//    }
 }
 
 - (void)viewDidLoad {
