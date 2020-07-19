@@ -1,0 +1,129 @@
+# iOS崩溃采集与分析
+
+
+
+思维导图
+
+
+
+## 流程
+
+* 采集
+* 生成 && 上报
+* 分析
+
+
+
+## 采集
+
+
+
+
+
+## 生成 && 上报
+
+
+
+### 崩溃日志
+
+
+
+#### 头部
+
+
+
+#### 调用栈
+
+
+
+##### ARM64
+
+![15932985061791.jpg](https://i.loli.net/2020/06/28/mJeQMTd3AO75L1l.jpg)
+
+
+
+x0~x30是64位的通用整形寄存器,其中x0~x7常用来存放函数参数，更多的参数由堆栈传递，x0一般用做函数返回值，当返回值超过8个字节会保存在x0和x1中。
+
+| 寄存器        | 含义                                     |
+| ------------- | ---------------------------------------- |
+| W0-W30/X0-X30 | 32/64位通用寄存器                        |
+| WZR/XZR       | 32/64零寄存器                            |
+| WSP/SP        | 32/64栈顶寄存器,指向函数分配栈空间的栈顶 |
+| FP            | X29,指向函数分配栈空间的栈底             |
+| LR            | X30,存储函数的返回地址                   |
+| PC            | 当前指令地址                             |
+
+
+
+##### 示例代码
+
+```objc
+
+```
+
+
+
+
+
+
+
+```objc
+_STRUCT_ARM_THREAD_STATE64
+{
+	__uint64_t __x[29]; /* General purpose registers x0-x28 */
+	__uint64_t __fp;    /* Frame pointer x29 */
+	__uint64_t __lr;    /* Link register x30 */
+	__uint64_t __sp;    /* Stack pointer x31 */
+	__uint64_t __pc;    /* Program counter */
+	__uint32_t __cpsr;  /* Current program status register */
+	__uint32_t __pad;   /* Same size for 32-bit or 64-bit clients */
+};
+```
+
+
+
+##### 函数调用
+
+###### 栈帧
+
+每一次函数的调用,都会在调用栈(call stack)上维护一个独立的栈帧(stack frame).每个独立的栈帧一般包括:
+
+* 函数的返回地址和参数
+* 临时变量: 包括函数的非静态局部变量以及编译器自动生成的其他临时变量
+* 函数调用的上下文 栈是从高地址向低地址延伸
+
+![15932996806231.jpg](https://i.loli.net/2020/06/28/f57E6oSgrFw3UAQ.jpg)
+
+###### 过程
+
+* 参数入栈:从右到左依次入栈,
+* 返回地址(LR)入栈:将当前代码区调用指令的下一条指令地址压入栈中，供函数返回时继续执行
+* 代码跳转:处理器将代码区跳转到被调用函数的入口处
+* 栈底(FP)入栈,调整SP重新指向栈顶地址
+* FP = SP,更新FP寄存器,作为被调函数的栈底地址
+* 返回地址保存到X0寄存器
+* 调整SP指针,回收局部变量空间
+* 将上一个栈底恢复到FP寄存器中
+* 从栈中取出返回地址(LR),并跳转到该位置
+
+
+
+#### 寄存器
+
+
+
+#### 二进制
+
+ 
+
+## 分析
+
+
+
+## TODO清单
+
+
+
+## 参考
+
+1. [Parameters in general-purpose registers](https://developer.arm.com/docs/den0024/latest/the-abi-for-arm-64-bit-architecture/register-use-in-the-aarch64-procedure-call-standard/parameters-in-general-purpose-registers)
